@@ -1,0 +1,5 @@
+node_modules/
+dist/
+keyword-projects/
+.env
+*.log
