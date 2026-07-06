@@ -80,6 +80,7 @@ describe("项目创建和工作簿定位", () => {
     expect(rawSheet?.views[0]).toMatchObject({ state: "frozen", ySplit: 1 });
     expect(rawSheet?.properties.tabColor?.argb).toBe("FF5B9BD5");
     expect(rawSheet?.getRow(1).height).toBe(24);
+    expect(rawSheet?.getRow(1).getCell(1).alignment).toMatchObject({ horizontal: "center", vertical: "middle", wrapText: true });
     expect(rawSheet?.getRow(1).getCell(1).fill).toMatchObject({
       type: "pattern",
       pattern: "solid",
@@ -92,7 +93,19 @@ describe("项目创建和工作簿定位", () => {
 
     expect(masterSheet?.properties.tabColor?.argb).toBe("FFC55A11");
     expect(masterSheet?.autoFilter).toEqual("A1:H1");
+    expect(masterSheet?.getRow(1).getCell(1).alignment).toMatchObject({ horizontal: "center", vertical: "middle", wrapText: true });
     expect(masterSheet?.getColumn(7).width).toBeGreaterThanOrEqual(42);
+    const priorityFormattings =
+      (masterSheet as unknown as { conditionalFormattings?: Array<{ ref: string; rules: Array<{ type: string; formulae?: unknown[] }> }> })?.conditionalFormattings ??
+      [];
+    const priorityFormatting = priorityFormattings.find((formatting) => formatting.ref === "F2:F1048576");
+    expect(priorityFormatting?.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "expression", formulae: ['$F2="高"'] }),
+        expect.objectContaining({ type: "expression", formulae: ['$F2="中"'] }),
+        expect.objectContaining({ type: "expression", formulae: ['$F2="低"'] }),
+      ]),
+    );
     expect(workbook.getWorksheet("内容规划")).toBeUndefined();
   });
 });

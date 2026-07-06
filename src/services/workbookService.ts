@@ -53,6 +53,13 @@ const COLUMN_NUMBER_FORMATS: Record<string, string> = {
 /** 需要自动换行的长文本字段。 */
 const WRAPPED_COLUMNS = new Set(["来源文件", "归档文件", "关键词", "备注", "详情", "值"]);
 
+/** 关键词主表优先级的条件格式规则，分别对应 Excel 的好、适中、差视觉语义。 */
+const PRIORITY_STYLE_RULES = [
+  { value: "高", fill: "FFC6EFCE", font: "FF006100" },
+  { value: "中", fill: "FFFFEB9C", font: "FF9C6500" },
+  { value: "低", fill: "FFFFC7CE", font: "FF9C0006" },
+] as const;
+
 /** 新建工作簿的项目元数据。 */
 export interface WorkbookProjectInfo {
   /** 项目名称。 */
@@ -137,6 +144,9 @@ export function styleHeaderRow(sheet: Worksheet): void {
   row.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
   row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: style.headerFill } };
   row.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: style.headerFill } };
     cell.border = {
       top: { style: "thin", color: { argb: "FFD9E2F3" } },
       left: { style: "thin", color: { argb: "FFD9E2F3" } },
@@ -164,6 +174,26 @@ function columnWidth(header: string): number {
   return COLUMN_WIDTHS[header] ?? Math.max(14, Math.min(34, header.length + 8));
 }
 
+/** 为关键词主表优先级列添加自动条件格式。 */
+function applyMasterPriorityStyle(sheet: Worksheet, headers: readonly string[]): void {
+  if (sheet.name !== "关键词主表") return;
+  const priorityColumnIndex = headers.indexOf("优先级") + 1;
+  if (priorityColumnIndex <= 0) return;
+  const priorityColumn = columnLetter(priorityColumnIndex);
+  sheet.addConditionalFormatting({
+    ref: `${priorityColumn}2:${priorityColumn}1048576`,
+    rules: PRIORITY_STYLE_RULES.map((rule, index) => ({
+      type: "expression",
+      priority: index + 1,
+      formulae: [`$${priorityColumn}2="${rule.value}"`],
+      style: {
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: rule.fill } },
+        font: { bold: true, color: { argb: rule.font } },
+      },
+    })),
+  });
+}
+
 /** 应用工作表级样式、筛选器和列格式。 */
 function applyReadableSheetStyle(sheet: Worksheet, headers: readonly string[]): void {
   const style = SHEET_STYLE_CONFIG[sheet.name] ?? SHEET_STYLE_CONFIG["原始关键词"];
@@ -187,8 +217,9 @@ function applyReadableSheetStyle(sheet: Worksheet, headers: readonly string[]): 
 /** 向工作表写入表头并应用基础样式。 */
 export function writeHeaders(sheet: Worksheet, headers: readonly string[]): void {
   sheet.addRow([...headers]);
-  styleHeaderRow(sheet);
   applyReadableSheetStyle(sheet, headers);
+  styleHeaderRow(sheet);
+  applyMasterPriorityStyle(sheet, headers);
 }
 
 /** 读取工作表第一行表头。 */
