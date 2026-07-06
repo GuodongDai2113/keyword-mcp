@@ -2,8 +2,6 @@
 export interface ServerConfig {
   /** 允许 MCP 操作的项目根目录绝对路径。 */
   projectsRoot: string;
-  /** 每个关键词项目使用的工作簿名。 */
-  workbookName: string;
   /** 新建项目默认目标市场。 */
   defaultMarket: string;
   /** 新建项目默认语言。 */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createProject } from "../src/services/projectService.js";
 import { deleteRecords, updateRecord, writeProjectRecords } from "../src/services/workbookService.js";
-import { searchSheetRows } from "../src/services/queryService.js";
+import { readSheetWindow, searchSheetRows } from "../src/services/queryService.js";
 import { withWorkbookWrite } from "../src/services/writeQueue.js";
 import { createTempWorkspace } from "./helpers/workspace.js";
 
@@ -14,6 +14,17 @@ describe("人工维护表写入、更新和删除", () => {
 
     expect(result.inserted).toBe(1);
     expect(result.unknownFields[0]?.fields).toEqual(["未知字段"]);
+  });
+
+  it("append 写入时自动填充筛选时间", async () => {
+    const workspace = await createTempWorkspace();
+    const project = await createProject({ root: workspace.root, name: "Auto Time Project" });
+
+    await writeProjectRecords(project.workbook, { sheet: "关键词主表", records: [{ 关键词: "auto-time", 搜索量: 50 }], mode: "append" });
+    const rows = await readSheetWindow(project.workbook, { sheet: "关键词主表", start: 1, limit: 5, columns: ["关键词", "筛选时间"] });
+
+    expect(rows.rows[0]?.values["筛选时间"]).toEqual(expect.any(String));
+    expect((rows.rows[0]?.values["筛选时间"] as string).length).toBeGreaterThan(0);
   });
 
   it("upsert 更新关键词主表既有行并追加新行", async () => {

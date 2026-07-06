@@ -208,6 +208,7 @@ function buildMasterRecord(rawRecord: Record<string, unknown>, input: Pick<Trans
     关键词难度: rawRecord["关键词难度"],
     "点击均价(CPC)": rawRecord["点击均价(CPC)"],
     搜索意图: rawRecord["搜索意图"],
+    来源: "导入",
     优先级: input.priority,
     备注: input.note,
     筛选时间: nowText(),

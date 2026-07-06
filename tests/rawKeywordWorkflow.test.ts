@@ -11,7 +11,7 @@ describe("原始关键词筛选流程", () => {
   it("默认查询原始关键词时忽略已过滤行，并可显式包含已过滤行", async () => {
     const workspace = await createTempWorkspace();
     const project = await createProject({ root: workspace.root, name: "Filter Raw Project" });
-    const sourceFile = path.join(project.directory, "filter.csv");
+    const sourceFile = path.join(workspace.root, "filter.csv");
     await fs.writeFile(sourceFile, "Keyword,Intent,Volume,Keyword Difficulty,CPC (USD),SERP Features\nkeep keyword,C,100,10,1.1,People also ask\nskip keyword,I,20,30,0.2,FAQ\n", "utf8");
     await importKeywordSources(project.workbook, { source: "semrush", filePaths: [sourceFile], skipExisting: true });
 
@@ -27,7 +27,7 @@ describe("原始关键词筛选流程", () => {
   it("把原始关键词转移到关键词主表后自动设定原始行过滤", async () => {
     const workspace = await createTempWorkspace();
     const project = await createProject({ root: workspace.root, name: "Transfer Raw Project" });
-    const sourceFile = path.join(project.directory, "transfer.csv");
+    const sourceFile = path.join(workspace.root, "transfer.csv");
     await fs.writeFile(sourceFile, "Keyword,Intent,Volume,Keyword Difficulty,CPC (USD),SERP Features\ntransfer keyword,C,90,8,0.8,People also ask\n", "utf8");
     await importKeywordSources(project.workbook, { source: "semrush", filePaths: [sourceFile], skipExisting: true });
 
@@ -50,7 +50,7 @@ describe("原始关键词筛选流程", () => {
   it("支持一次提交多条过滤和多条转移，每条可使用独立参数", async () => {
     const workspace = await createTempWorkspace();
     const project = await createProject({ root: workspace.root, name: "Batch Raw Project" });
-    const sourceFile = path.join(project.directory, "batch.csv");
+    const sourceFile = path.join(workspace.root, "batch.csv");
     await fs.writeFile(sourceFile, "Keyword,Intent,Volume,Keyword Difficulty,CPC (USD)\nfilter a,I,10,20,0.1\nfilter b,I,20,30,0.2\ntransfer a,C,100,8,1.1\ntransfer b,T,80,12,0.9\n", "utf8");
     await importKeywordSources(project.workbook, { source: "semrush", filePaths: [sourceFile], skipExisting: true });
 
@@ -82,7 +82,7 @@ describe("原始关键词筛选流程", () => {
   it("支持一次提交混合筛选决策，过滤不用词并转移保留词", async () => {
     const workspace = await createTempWorkspace();
     const project = await createProject({ root: workspace.root, name: "Screen Raw Project" });
-    const sourceFile = path.join(project.directory, "screen.csv");
+    const sourceFile = path.join(workspace.root, "screen.csv");
     await fs.writeFile(sourceFile, "Keyword,Intent,Volume,Keyword Difficulty,CPC (USD)\nscreen filter,I,10,20,0.1\nscreen transfer,C,100,8,1.1\n", "utf8");
     await importKeywordSources(project.workbook, { source: "semrush", filePaths: [sourceFile], skipExisting: true });
 

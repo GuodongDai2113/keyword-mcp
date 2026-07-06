@@ -10,7 +10,7 @@ describe("SEMrush 来源导入", () => {
   it("导入 CSV 到原始关键词并记录数据来源", async () => {
     const workspace = await createTempWorkspace();
     const project = await createProject({ root: workspace.root, name: "Import Project" });
-    const sourceFile = path.join(project.directory, "semrush.csv");
+    const sourceFile = path.join(workspace.root, "semrush.csv");
     await fs.writeFile(sourceFile, "Keyword,Intent,Volume,Keyword Difficulty,CPC (USD),SERP Features\nexample keyword,C,100,25,1.2,People also ask\n", "utf8");
 
     const result = await importKeywordSources(project.workbook, { source: "semrush", filePaths: [sourceFile], skipExisting: true });
@@ -23,7 +23,7 @@ describe("SEMrush 来源导入", () => {
   it("重复导入同名来源文件时跳过", async () => {
     const workspace = await createTempWorkspace();
     const project = await createProject({ root: workspace.root, name: "Skip Import Project" });
-    const sourceFile = path.join(project.directory, "repeat.csv");
+    const sourceFile = path.join(workspace.root, "repeat.csv");
     await fs.writeFile(sourceFile, "Keyword,Volume\nrepeat keyword,10\n", "utf8");
 
     await importKeywordSources(project.workbook, { source: "semrush", filePaths: [sourceFile], skipExisting: true });

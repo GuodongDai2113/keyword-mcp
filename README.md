@@ -1,6 +1,6 @@
 # keyword-mcp
 
-TypeScript MCP server for maintaining keyword projects. One project maps to one `keyword-plan.xlsx` workbook.
+TypeScript MCP server for maintaining keyword projects. One project maps to one `{project-name}-keywords.xlsx` workbook.
 
 ## Development
 
@@ -13,8 +13,7 @@ npm run build
 
 ## Configuration
 
-- `KEYWORD_MCP_PROJECTS_ROOT`: allowed keyword project root. Default: `keyword-projects`
-- `KEYWORD_MCP_WORKBOOK_NAME`: workbook file name. Default: `keyword-plan.xlsx`
+- `KEYWORD_MCP_PROJECTS_ROOT`: allowed keyword project root. Default: current working directory
 - `KEYWORD_MCP_DEFAULT_MARKET`: project default market. Default: `global`
 - `KEYWORD_MCP_DEFAULT_LANGUAGE`: project default language. Default: `en`
 

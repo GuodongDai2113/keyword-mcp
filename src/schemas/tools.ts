@@ -28,7 +28,7 @@ export const workbookLocatorSchema = z.object({
 /** 导入来源 tool 输入 schema。 */
 export const importSourceSchema = workbookLocatorSchema.extend({
   source: z.literal("semrush").default("semrush"),
-  filePaths: z.array(z.string()).optional(),
+  filePaths: z.array(z.string()).min(1, "至少需要提供一个文件路径"),
   skipExisting: z.boolean().default(true),
 });
 
@@ -116,6 +116,13 @@ export const screenRawKeywordDecisionSchema = z.discriminatedUnion("action", [
 /** 混合筛选决策 tool 输入 schema。 */
 export const screenRawKeywordsSchema = workbookLocatorSchema.extend({
   decisions: z.array(screenRawKeywordDecisionSchema).min(1),
+  mode: z.enum(["append", "upsert"]).default("upsert"),
+  key: z.string().default("关键词"),
+});
+
+/** 手动录入关键词 tool 输入 schema。 */
+export const manualEntrySchema = workbookLocatorSchema.extend({
+  records: z.array(z.record(z.unknown())).min(1, "至少需要录入一条记录"),
   mode: z.enum(["append", "upsert"]).default("upsert"),
   key: z.string().default("关键词"),
 });

@@ -16,6 +16,7 @@ describe("MCP tool 注册", () => {
       "keyword_project_transfer_raw_keywords",
       "keyword_project_screen_raw_keywords",
       "keyword_project_list_sources",
+      "keyword_project_manual_entry",
     ]);
   });
 });

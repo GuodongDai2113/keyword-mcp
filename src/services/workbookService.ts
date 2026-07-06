@@ -32,6 +32,8 @@ const COLUMN_WIDTHS: Record<string, number> = {
   关键词难度: 14,
   "点击均价(CPC)": 16,
   搜索意图: 18,
+  词性: 14,
+  分类: 18,
   SERP功能: 48,
   过滤: 14,
   优先级: 12,
@@ -53,12 +55,11 @@ const COLUMN_NUMBER_FORMATS: Record<string, string> = {
 /** 需要自动换行的长文本字段。 */
 const WRAPPED_COLUMNS = new Set(["来源文件", "归档文件", "关键词", "备注", "详情", "值"]);
 
-/** 关键词主表优先级的条件格式规则，分别对应 Excel 的好、适中、差视觉语义。 */
-const PRIORITY_STYLE_RULES = [
-  { value: "高", fill: "FFC6EFCE", font: "FF006100" },
-  { value: "中", fill: "FFFFEB9C", font: "FF9C6500" },
-  { value: "低", fill: "FFFFC7CE", font: "FF9C0006" },
-] as const;
+/** 关键词主表词性列的固定可选值。 */
+export const POS_VALUES = ["核心词", "长尾词", "问题词", "场景词"] as const;
+
+/** 关键词主表来源列的固定可选值。 */
+export const SOURCE_VALUES = ["导入", "手动"] as const;
 
 /** 新建工作簿的项目元数据。 */
 export interface WorkbookProjectInfo {
@@ -174,24 +175,30 @@ function columnWidth(header: string): number {
   return COLUMN_WIDTHS[header] ?? Math.max(14, Math.min(34, header.length + 8));
 }
 
-/** 为关键词主表优先级列添加自动条件格式。 */
-function applyMasterPriorityStyle(sheet: Worksheet, headers: readonly string[]): void {
+/** 为关键词主表固定选项列添加下拉验证。 */
+function applyMasterDropdownValidations(sheet: Worksheet, headers: readonly string[]): void {
   if (sheet.name !== "关键词主表") return;
-  const priorityColumnIndex = headers.indexOf("优先级") + 1;
-  if (priorityColumnIndex <= 0) return;
-  const priorityColumn = columnLetter(priorityColumnIndex);
-  sheet.addConditionalFormatting({
-    ref: `${priorityColumn}2:${priorityColumn}1048576`,
-    rules: PRIORITY_STYLE_RULES.map((rule, index) => ({
-      type: "expression",
-      priority: index + 1,
-      formulae: [`$${priorityColumn}2="${rule.value}"`],
-      style: {
-        fill: { type: "pattern", pattern: "solid", fgColor: { argb: rule.fill } },
-        font: { bold: true, color: { argb: rule.font } },
-      },
-    })),
-  });
+
+  /** 需要下拉验证的列及其可选值、提示信息。 */
+  const dropdowns: Record<string, { values: readonly string[]; title: string; message: string }> = {
+    词性: { values: POS_VALUES, title: "无效词性", message: "请从下拉列表中选择：核心词、长尾词、问题词、场景词" },
+    来源: { values: SOURCE_VALUES, title: "无效来源", message: "请从下拉列表中选择：导入、手动" },
+  };
+
+  for (const [field, config] of Object.entries(dropdowns)) {
+    const columnIndex = headers.indexOf(field) + 1;
+    if (columnIndex <= 0) continue;
+    const column = columnLetter(columnIndex);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sheet as any).dataValidations.add(`${column}2:${column}1048576`, {
+      type: "list",
+      allowBlank: true,
+      formulae: [`"${config.values.join(",")}"`],
+      showErrorMessage: true,
+      errorTitle: config.title,
+      error: config.message,
+    });
+  }
 }
 
 /** 应用工作表级样式、筛选器和列格式。 */
@@ -219,7 +226,7 @@ export function writeHeaders(sheet: Worksheet, headers: readonly string[]): void
   sheet.addRow([...headers]);
   applyReadableSheetStyle(sheet, headers);
   styleHeaderRow(sheet);
-  applyMasterPriorityStyle(sheet, headers);
+  applyMasterDropdownValidations(sheet, headers);
 }
 
 /** 读取工作表第一行表头。 */
@@ -374,7 +381,11 @@ export async function writeProjectRecords(workbookPath: string, input: WriteProj
     const unknownFields: Array<{ recordIndex: number; fields: string[] }> = [];
     const rows: Array<Record<string, unknown>> = [];
     input.records.forEach((record, index) => {
-      const { known, unknown } = splitRecord(headers, record);
+      const enriched = { ...record };
+      if (input.sheet === "关键词主表" && !("筛选时间" in enriched)) {
+        enriched["筛选时间"] = nowText();
+      }
+      const { known, unknown } = splitRecord(headers, enriched);
       if (unknown.length > 0) unknownFields.push({ recordIndex: index + 1, fields: unknown });
       if (Object.keys(known).length === 0) {
         skipped += 1;

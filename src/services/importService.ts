@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import ExcelJS, { type Workbook as ExcelWorkbook } from "exceljs";
 import { RAW_HEADERS, SOURCE_HEADERS } from "../constants/headers.js";
-import { IGNORED_SOURCE_COLUMNS, SEMRUSH_COLUMN_ALIASES, SUPPORTED_SOURCE_SUFFIXES } from "../constants/sourceMappings.js";
+import { IGNORED_SOURCE_COLUMNS, SEMRUSH_COLUMN_ALIASES } from "../constants/sourceMappings.js";
 import { appendChangelog, nowText, readHeaders, requireWorksheet, toCellValue, touchProjectInfo } from "./workbookService.js";
 import { withWorkbookWrite } from "./writeQueue.js";
 
@@ -169,16 +169,6 @@ function sourceExists(workbook: ExcelWorkbook, fileName: string): boolean {
   return false;
 }
 
-/** 发现 data-sources 目录下可导入的来源文件。 */
-async function discoverSourceFiles(workbookPath: string): Promise<string[]> {
-  const sourceDir = path.join(path.dirname(workbookPath), "data-sources");
-  const entries = await fs.readdir(sourceDir, { withFileTypes: true }).catch(() => []);
-  return entries
-    .filter((entry) => entry.isFile() && SUPPORTED_SOURCE_SUFFIXES.has(path.extname(entry.name).toLowerCase()) && !entry.name.startsWith("~$"))
-    .map((entry) => path.join(sourceDir, entry.name))
-    .sort();
-}
-
 /** 把标准字段转换为原始关键词表的中文行。 */
 function buildRawKeywordRow(importedAt: string, fileName: string, standard: Record<string, string | undefined>): Record<string, unknown> {
   return {
@@ -197,7 +187,10 @@ function buildRawKeywordRow(importedAt: string, fileName: string, standard: Reco
 /** 导入关键词来源文件到原始关键词表。 */
 export async function importKeywordSources(workbookPath: string, input: ImportKeywordSourcesInput): Promise<ImportKeywordSourcesResult> {
   return withWorkbookWrite(workbookPath, async () => {
-    const filePaths = input.filePaths ?? (await discoverSourceFiles(workbookPath));
+    if (!input.filePaths || input.filePaths.length === 0) {
+      throw new Error("未提供要导入的文件路径");
+    }
+    const filePaths = input.filePaths;
     const importedFiles: ImportKeywordSourcesResult["importedFiles"] = [];
     const skippedFiles: ImportKeywordSourcesResult["skippedFiles"] = [];
     const workbook = new Workbook();
@@ -215,11 +208,6 @@ export async function importKeywordSources(workbookPath: string, input: ImportKe
       if (!Object.values(mapping.mapped).includes("keyword")) {
         throw new Error("无法识别关键词列");
       }
-      const storedFile = path.join(path.dirname(workbookPath), "data-sources", fileName);
-      await fs.mkdir(path.dirname(storedFile), { recursive: true });
-      if (path.resolve(filePath) !== path.resolve(storedFile)) {
-        await fs.copyFile(filePath, storedFile);
-      }
       const importedAt = nowText();
       let importedRows = 0;
       for (const row of rows) {
@@ -229,6 +217,7 @@ export async function importKeywordSources(workbookPath: string, input: ImportKe
         rawSheet.addRow(RAW_HEADERS.map((header) => toCellValue(rawRow[header])));
         importedRows += 1;
       }
+      const storedFile = path.resolve(filePath);
       const sourceRow: Record<string, unknown> = {
         导入时间: importedAt,
         来源: "SEMrush",

@@ -1,15 +1,12 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import ExcelJS from "exceljs";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createServerConfig } from "../config.js";
-import { SUPPORTED_SOURCE_SUFFIXES } from "../constants/sourceMappings.js";
 import { createProject, resolveWorkbookPath } from "../services/projectService.js";
 import { deleteRecords, getWorkbookOverview, readHeaders, requireWorksheet, updateRecord, writeProjectRecords } from "../services/workbookService.js";
 import { importKeywordSources } from "../services/importService.js";
 import { readSheetWindow, searchSheetRows } from "../services/queryService.js";
 import { filterRawKeywords, screenRawKeywords, transferRawKeywordsToMaster } from "../services/rawKeywordService.js";
-import { createProjectSchema, deleteRecordsSchema, filterRawKeywordsSchema, importSourceSchema, readSheetSchema, screenRawKeywordsSchema, searchSheetSchema, transferRawKeywordsSchema, updateRecordSchema, workbookLocatorSchema, writeRecordsSchema } from "../schemas/tools.js";
+import { createProjectSchema, deleteRecordsSchema, filterRawKeywordsSchema, importSourceSchema, manualEntrySchema, readSheetSchema, screenRawKeywordsSchema, searchSheetSchema, transferRawKeywordsSchema, updateRecordSchema, workbookLocatorSchema, writeRecordsSchema } from "../schemas/tools.js";
 
 /** ExcelJS 是 CommonJS 包，运行时必须从默认导入对象中取 Workbook。 */
 const { Workbook } = ExcelJS;
@@ -28,6 +25,7 @@ export const registeredToolNames = [
   "keyword_project_transfer_raw_keywords",
   "keyword_project_screen_raw_keywords",
   "keyword_project_list_sources",
+  "keyword_project_manual_entry",
 ] as const;
 
 /** 把任意结果包装为 MCP 文本响应。 */
@@ -38,12 +36,11 @@ function jsonResponse(data: unknown) {
 /** 根据通用定位输入解析工作簿路径。 */
 function workbookFromLocator(input: { projectPath?: string; workbookPath?: string }): string {
   const config = createServerConfig();
-  return resolveWorkbookPath({ ...input, projectsRoot: config.projectsRoot, workbookName: config.workbookName });
+  return resolveWorkbookPath({ ...input, projectsRoot: config.projectsRoot });
 }
 
-/** 列出项目数据源文件和导入记录。 */
-async function listSources(workbookPath: string): Promise<{ workbook: string; sourceFiles: Array<Record<string, unknown>>; importRecords: Array<Record<string, unknown>> }> {
-  const sourceDir = path.join(path.dirname(workbookPath), "data-sources");
+/** 列出项目数据源导入记录。 */
+async function listSources(workbookPath: string): Promise<{ workbook: string; importRecords: Array<Record<string, unknown>> }> {
   const workbook = new Workbook();
   await workbook.xlsx.readFile(workbookPath);
   const sourceSheet = requireWorksheet(workbook, "数据来源");
@@ -54,24 +51,7 @@ async function listSources(workbookPath: string): Promise<{ workbook: string; so
     if (!row.hasValues) continue;
     importRecords.push(Object.fromEntries(headers.map((header, index) => [header, row.getCell(index + 1).value])));
   }
-  const importedNames = new Set(importRecords.map((record) => String(record["来源文件"] ?? "")));
-  const entries = await fs.readdir(sourceDir, { withFileTypes: true }).catch(() => []);
-  const sourceFiles = await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && SUPPORTED_SOURCE_SUFFIXES.has(path.extname(entry.name).toLowerCase()) && !entry.name.startsWith("~$"))
-      .map(async (entry) => {
-        const filePath = path.join(sourceDir, entry.name);
-        const stat = await fs.stat(filePath);
-        return {
-          name: entry.name,
-          path: filePath,
-          suffix: path.extname(entry.name).toLowerCase(),
-          size: stat.size,
-          imported: importedNames.has(entry.name),
-        };
-      }),
-  );
-  return { workbook: workbookPath, sourceFiles, importRecords };
+  return { workbook: workbookPath, importRecords };
 }
 
 /** 注册所有关键词项目 MCP tools。 */
@@ -142,5 +122,18 @@ export function registerKeywordTools(server: McpServer): void {
 
   server.tool("keyword_project_list_sources", workbookLocatorSchema.shape, async (input) => {
     return jsonResponse(await listSources(workbookFromLocator(workbookLocatorSchema.parse(input))));
+  });
+
+  server.tool("keyword_project_manual_entry", manualEntrySchema.shape, async (input) => {
+    const parsed = manualEntrySchema.parse(input);
+    const records = parsed.records.map((record) => ({ ...record, 来源: record["来源"] ?? "手动" }));
+    return jsonResponse(
+      await writeProjectRecords(workbookFromLocator(parsed), {
+        sheet: "关键词主表",
+        records,
+        mode: parsed.mode,
+        key: parsed.key,
+      }),
+    );
   });
 }
