@@ -4,3 +4,4 @@ keyword-projects/
 .env
 *.log
 *.xlsx
+build/
