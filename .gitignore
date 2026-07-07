@@ -5,3 +5,4 @@ keyword-projects/
 *.log
 *.xlsx
 build/
+package-lock.json
